@@ -18,6 +18,7 @@ class Trainer(object):
         self.optimizer = optimizer
         self.pre_trained = pre_trained
         self.name = name
+        self.best_acc = 0
         
         #self.monitor = boilerplate.VisdomMonitor(port=80)
  
@@ -27,7 +28,8 @@ class Trainer(object):
         if not (optimizer is None):
             self.optimizer = optimizer
         best_model_wts = copy.deepcopy(self.model.state_dict())
-        best_acc = 0.0
+        self.history = {}
+        iteration = 0
         
         dataset_sizes = {x: len(self.datasets[x]) for x in ['train', 'val']}
         class_names = self.datasets['train'].classes
@@ -72,6 +74,10 @@ class Trainer(object):
                             if scheduler.apply_batch:
                                 scheduler.step()
                         outputs, loss = self.fit_on_batch(inputs,labels,self.criterion,self.optimizer)
+                        iteration += 1
+                        self.history.setdefault('lr', []).append(self.optimizer.param_groups[0]['lr'])
+                        self.history.setdefault('loss', []).append(loss.data[0])
+                        self.history.setdefault('iterations', []).append(iteration)
                     else:
                         outputs, loss = self.evaluate_on_batch(inputs,labels,self.criterion)
                                         
@@ -80,36 +86,47 @@ class Trainer(object):
                     # statistics
                     running_loss += loss.data[0] * inputs.size(0)
                     running_corrects += torch.sum(preds == labels)
-
+                   
                 epoch_loss = running_loss / dataset_sizes[phase]
                 epoch_acc = running_corrects / dataset_sizes[phase]
 
                 print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                     phase, epoch_loss, epoch_acc))
-
+                
                 # deep copy the model
                 # remember best accuracy and save checkpoint
                 if phase == 'val':
-                    is_best = epoch_acc > best_acc
+                    is_best = epoch_acc > self.best_acc
+                    valid_loss = epoch_loss
+                    valid_acc = epoch_acc
                     self.save_checkpoint({
                         'epoch': epoch + 1,
                         'state_dict': self.model.state_dict(),
-                        'best_acc': best_acc,
+                        'best_acc': self.best_acc,
                         'optimizer' : self.optimizer.state_dict(),
                     }, is_best)
-                    if epoch_acc > best_acc:
-                        best_acc = epoch_acc
+                    if epoch_acc > self.best_acc:
+                        self.best_acc = epoch_acc
                         best_model_wts = copy.deepcopy(self.model.state_dict())
-
+                        best_optimizer_params = copy.deepcopy(self.optimizer.state_dict())
+                else:
+                    train_loss = epoch_loss
+                    train_acc = epoch_acc        
+            # append logger file
+            logger.append([self.optimizer.param_groups[0]['lr'], train_loss, valid_loss, train_acc, valid_acc])
             print()
     
         time_elapsed = time.time() - since
         print('Training complete in {:.0f}m {:.0f}s'.format(
             time_elapsed // 60, time_elapsed % 60))
-        print('Best val Acc: {:4f}'.format(best_acc))
-
-        # load best model weights
+        print('Best val Acc: {:4f}'.format(self.best_acc))
+        
+        logger.close()
+        logger.plot()
+ 
+        # load best model weights and optimizer parameters
         self.model.load_state_dict(best_model_wts)
+        self.optimizer.load_state_dict(best_optimizer_params)
         return self.model
      
     def fit_on_batch(self, x, y, loss_fn, optimizer, metrics=["loss", "acc"]):
@@ -269,12 +286,13 @@ class Trainer(object):
         self.loss_lr_plot(history)         
         self._restore_state()
      
-    def plot_lr(self,history):
+    def plot_lr(self):
         '''Helper function to quickly inspect the learning rate schedule.'''
-        plt.plot(history['iterations'], self.history['lr'])
+        plt.plot(self.history['iterations'], self.history['lr'])
         plt.yscale('log')
         plt.xlabel('Iteration')
         plt.ylabel('Learning rate')
+
 
     def loss_lr_plot(self,history,figsize=(12, 6)):
         fig = plt.figure(figsize=figsize)
