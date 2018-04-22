@@ -6,14 +6,12 @@ from .logger import Logger
 tqdm.monitor_interval = 0
 
 class Trainer(object):
-    def __init__(self, model, datasets, criterion, optimizer, pre_trained=True, batch_size=64, name ='default'):
+    def __init__(self, model, datasets, dataloaders, criterion, optimizer, pre_trained=True, name ='default'):
         self.model = model
         self.datasets = datasets
-        self.batch_size = batch_size
-        self.train_loader = torch.utils.data.DataLoader(datasets['train'], batch_size=self.batch_size,
-                                             shuffle=True)
-        self.val_loader = torch.utils.data.DataLoader(datasets['val'], batch_size=self.batch_size,
-                                             shuffle=True)
+        #self.batch_size = batch_size
+        self.train_loader = dataloaders['train']
+        self.val_loader = dataloaders['val']
         self.criterion = criterion
         self.optimizer = optimizer
         self.pre_trained = pre_trained
