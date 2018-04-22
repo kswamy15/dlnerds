@@ -11,9 +11,9 @@ class Trainer(object):
         self.datasets = datasets
         self.batch_size = batch_size
         self.train_loader = torch.utils.data.DataLoader(datasets['train'], batch_size=self.batch_size,
-                                             shuffle=True, num_workers=4)
+                                             shuffle=True)
         self.val_loader = torch.utils.data.DataLoader(datasets['val'], batch_size=self.batch_size,
-                                             shuffle=True, num_workers=4)
+                                             shuffle=True)
         self.criterion = criterion
         self.optimizer = optimizer
         self.pre_trained = pre_trained
