@@ -85,7 +85,7 @@ class Trainer(object):
                    
                     # statistics
                     running_loss += loss.data[0] * inputs.size(0)
-                    running_corrects += torch.sum(preds == make_var(labels))
+                    running_corrects += torch.sum(preds == make_var(labels).data)
                    
                 epoch_loss = running_loss / dataset_sizes[phase]
                 epoch_acc = running_corrects / dataset_sizes[phase]
