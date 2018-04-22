@@ -31,16 +31,18 @@ class CosineAnnealingLR(_LRScheduler):
         return [self.eta_min + (base_lr - self.eta_min) *
                 (1 + math.cos(math.pi * self.last_epoch / self.T_max)) / 2
                 for base_lr in self.base_lrs]
-                    
+
 class myCosineAnnealingLR(CosineAnnealingLR):
-    def __init__(self, optimizer, T_max, eta_min=0, cycle_len=None, apply_batch = True, last_epoch=-1):
-        self.cycle_len = cycle_len
+    def __init__(self, optimizer, T_max, eta_min=0, cycle_mult = 1.0, apply_batch = True, last_epoch=-1):
+        self.apply_batch = apply_batch
+        self.cycle_mult = cycle_mult
         super(myCosineAnnealingLR, self).__init__(optimizer, T_max, eta_min, last_epoch)
 
     def get_lr(self):
-        if not (self.cycle_len is None) and self.cycle_len == self.last_epoch:
+        if  self.last_epoch == self.T_max+1:
             self.last_epoch = 0
-        super(myCosineAnnealingLR, self).get_lr()
+            self.T_max = int(self.T_max * self.cycle_mult)
+        return super(myCosineAnnealingLR, self).get_lr()
 
 
                             

@@ -17,17 +17,18 @@ class Trainer(object):
         self.pre_trained = pre_trained
         self.name = name
         self.best_acc = 0
-        
+                
         #self.monitor = boilerplate.VisdomMonitor(port=80)
  
         
-    def train_model(self, optimizer=None, scheduler=None, cycle_len=None, cycle_mult=1, num_epochs=10):
+    def train_model(self, optimizer=None, scheduler=None, num_epochs=10):
         since = time.time()
         if not (optimizer is None):
             self.optimizer = optimizer
-        best_model_wts = copy.deepcopy(self.model.state_dict())
         self.history = {}
         iteration = 0
+        best_model_wts = copy.deepcopy(self.model.state_dict())
+        best_optimizer_params = copy.deepcopy(self.optimizer.state_dict())
         
         dataset_sizes = {x: len(self.datasets[x]) for x in ['train', 'val']}
         class_names = self.datasets['train'].classes
@@ -49,11 +50,10 @@ class Trainer(object):
                     # Check if scheduler is present, if so then check if it has apply_batch attribute.  
                     # if scheduler is present and apply_batch is false, then scheduler step
                     # if scheduler is present and doesn't have a apply_batch attribute, then scheduler step
-                    if scheduler:
-                        if hasattr(scheduler, 'apply_batch'):
-                            if not scheduler.apply_batch:
-                                scheduler.step()
-                        else: scheduler.step()
+                    if hasattr(scheduler, 'apply_batch'):
+                        if not scheduler.apply_batch:
+                            scheduler.step()
+                    else: scheduler.step()
 
                     self.model.train(True)  # Set model to training mode
                 else:
@@ -326,9 +326,9 @@ class Trainer(object):
     def predict_dl(self, dl): return predict_with_targs(self.model, dl)[0]
 
     def save_checkpoint(self, state, is_best, filename='checkpoint.pth.tar'):
-        torch.save(state, self.name+'_'+filename)
+        torch.save(state, 'checkpoint/'+self.name+'_'+filename)
         if is_best:
-            shutil.copyfile(self.name+'_'+filename, 'model_best.pth.tar')    
+            shutil.copyfile('checkpoint/'+self.name+'_'+filename, 'model_best.pth.tar')    
     
 
 
