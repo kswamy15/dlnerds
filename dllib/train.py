@@ -229,7 +229,7 @@ class Trainer(object):
        
         #lr_history = []
         #loss_history = []
-        history = {}
+        self.history = {}
         iteration = 0
         best_loss = 1e9
         
@@ -257,9 +257,9 @@ class Trainer(object):
                 outputs, loss = self.fit_on_batch(inputs,labels,self.criterion,self.optimizer)
 
                 # statistics
-                history.setdefault('lr', []).append(lr_value)
-                history.setdefault('loss', []).append(loss.data[0])
-                history.setdefault('iterations', []).append(iteration)
+                self.history.setdefault('lr', []).append(lr_value)
+                self.history.setdefault('loss', []).append(loss.data[0])
+                self.history.setdefault('iterations', []).append(iteration)
                 #loss_history.append(loss.data[0])
                 #lr_history.append(lr_value)
                                 
@@ -281,7 +281,7 @@ class Trainer(object):
                 lr_value *= lr_decay
 
         #history = {'loss_hist':loss_history,'lr_hist':lr_history}   
-        self.loss_lr_plot(history)         
+        self.loss_lr_plot()         
         self._restore_state()
      
     def plot_lr(self):
@@ -292,12 +292,12 @@ class Trainer(object):
         plt.ylabel('Learning rate')
 
 
-    def loss_lr_plot(self,history,figsize=(12, 6)):
+    def loss_lr_plot(self,figsize=(12, 6)):
         fig = plt.figure(figsize=figsize)
         plt.ylabel("loss", fontsize=16)
         plt.xlabel("learning rate (log scale)", fontsize=16)
         plt.xscale("log")
-        plt.plot(history['lr'], history['loss'])
+        plt.plot(self.history['lr'], self.history['loss'])
         plt.show()
         
     def _save_state(self):
