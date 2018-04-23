@@ -6,9 +6,9 @@ from .logger import Logger
 tqdm.monitor_interval = 0
 
 class Trainer(object):
-    def __init__(self, model, datasets, train_loader,val_loader, criterion, optimizer, pre_trained=True, name ='default'):
+    def __init__(self, model, train_loader, val_loader, criterion, optimizer, pre_trained=True, name ='default'):
         self.model = model
-        self.datasets = datasets
+        #self.datasets = datasets
         #self.batch_size = batch_size
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -30,8 +30,8 @@ class Trainer(object):
         best_model_wts = copy.deepcopy(self.model.state_dict())
         best_optimizer_params = copy.deepcopy(self.optimizer.state_dict())
         
-        dataset_sizes = {x: len(self.datasets[x]) for x in ['train', 'val']}
-        class_names = self.datasets['train'].classes
+        #dataset_sizes = {x: len(self.datasets[x]) for x in ['train', 'val']}
+        #class_names = self.datasets['train'].classes
         dataloaders = {'train':self.train_loader,'val':self.val_loader}
 
         #save training process to simple Logger function
@@ -62,7 +62,7 @@ class Trainer(object):
 
                 running_loss = 0.0
                 running_corrects = 0
-
+                dataset_sizes = 0
                 # Iterate over data.
                 for data in tqdm(dataloaders[phase]):
                     # get the inputs
@@ -85,9 +85,10 @@ class Trainer(object):
                     # statistics
                     running_loss += loss.data[0] * inputs.size(0)
                     running_corrects += torch.sum(preds == make_var(labels).data)
+                    dataset_sizes += inputs.size(0)
                    
-                epoch_loss = running_loss / dataset_sizes[phase]
-                epoch_acc = running_corrects / dataset_sizes[phase]
+                epoch_loss = running_loss / dataset_sizes
+                epoch_acc = running_corrects / dataset_sizes
 
                 print('{} Loss: {:.4f} Acc: {:.4f}'.format(
                     phase, epoch_loss, epoch_acc))
