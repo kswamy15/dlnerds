@@ -50,10 +50,11 @@ class Trainer(object):
                     # Check if scheduler is present, if so then check if it has apply_batch attribute.  
                     # if scheduler is present and apply_batch is false, then scheduler step
                     # if scheduler is present and doesn't have a apply_batch attribute, then scheduler step
-                    if hasattr(scheduler, 'apply_batch'):
-                        if not scheduler.apply_batch:
-                            scheduler.step()
-                    else: scheduler.step()
+                    if not (scheduler is None):
+                        if hasattr(scheduler, 'apply_batch'):
+                            if not scheduler.apply_batch:
+                                scheduler.step()
+                        else: scheduler.step()
 
                     self.model.train(True)  # Set model to training mode
                 else:
