@@ -6,12 +6,12 @@ from .logger import Logger
 tqdm.monitor_interval = 0
 
 class Trainer(object):
-    def __init__(self, model, datasets, dataloaders, criterion, optimizer, pre_trained=True, name ='default'):
+    def __init__(self, model, datasets, train_loader,val_loader, criterion, optimizer, pre_trained=True, name ='default'):
         self.model = model
         self.datasets = datasets
         #self.batch_size = batch_size
-        self.train_loader = dataloaders['train']
-        self.val_loader = dataloaders['val']
+        self.train_loader = self.train_loader
+        self.val_loader = self.val_loader
         self.criterion = criterion
         self.optimizer = optimizer
         self.pre_trained = pre_trained
