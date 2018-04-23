@@ -10,8 +10,8 @@ class Trainer(object):
         self.model = model
         self.datasets = datasets
         #self.batch_size = batch_size
-        self.train_loader = self.train_loader
-        self.val_loader = self.val_loader
+        self.train_loader = train_loader
+        self.val_loader = val_loader
         self.criterion = criterion
         self.optimizer = optimizer
         self.pre_trained = pre_trained
