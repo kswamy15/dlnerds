@@ -1,10 +1,10 @@
 from .imports import *
-from .utils import make_var as make_var
-from .model import *
+from .utils import to_np
+#from .model import *
 #from .metrics import *
 from .lr_sched import *
 from .logger import Logger
-import importlib
+#import importlib
 tqdm.monitor_interval = 0
 
 class Trainer(object):
@@ -344,13 +344,19 @@ class Trainer(object):
 
     def predict(self, is_test=False):
         dl = self.val_loader
-        return predict(self.model, dl)
-
+        preda,_ = self.predict_with_targs_(self.model, dl)
+        return to_np(torch.cat(preda))
+        
     def predict_with_targs(self, is_test=False):
-        dl = self.val_loader
-        return predict_with_targs(self.model, dl)
-
-    def predict_dl(self, dl): return predict_with_targs(self.model, dl)[0]
+        preda,targa = self.predict_with_targs_(self.model, self.val_loader)
+        return to_np(torch.cat(preda)), to_np(torch.cat(targa))
+ 
+    def predict_with_targs_(self, m, dl):
+        self.model.eval()
+        #if hasattr(m, 'reset'): m.reset()
+        res = []
+        for x,y in tqdm(iter(self.val_loader)): res.append([F.softmax(self.model(x.to(self.device)),dim=1),y])
+        return zip(*res)
 
     def save_checkpoint(self, state, is_best, filename='checkpoint.pth.tar'):
         torch.save(state, 'checkpoint/'+self.name+'_'+filename)
