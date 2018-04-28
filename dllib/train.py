@@ -247,6 +247,7 @@ class Trainer(object):
         self.history = {}
         iteration = 0
         best_loss = 1e9
+        prior_loss = 1.0
         
         lr_decay = 10**((np.log10(end_lr)-np.log10(start_lr))/float(steps))
         lr_value = start_lr
@@ -271,7 +272,7 @@ class Trainer(object):
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
                 iteration += 1
-
+                
                 outputs, loss = self.fit_on_batch(inputs,labels,self.criterion,self.optimizer)
                 
                 #score = getattr(self.metrics_module, self.metrics)(outputs.cpu().data.numpy(),labels.cpu().numpy())
@@ -294,10 +295,11 @@ class Trainer(object):
                 if loss.item() < best_loss:
                     best_loss = loss.item()
 
-                if math.isnan(loss.item()) or (loss.item() > best_loss*20 and best_loss > 1.0) or iteration >= steps - 1:
+                if math.isnan(loss.item()) or (loss.item() > prior_loss*20 and prior_loss > .01) or iteration >= steps - 1:
                     should_stop = True
                     break
-                              
+                #set prior_iteration loss to current loss
+                prior_loss = loss.item()              
                           
                 #loss_history_prev = loss.data[0]    
 
