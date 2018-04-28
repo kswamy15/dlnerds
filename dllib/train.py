@@ -8,7 +8,7 @@ import importlib
 tqdm.monitor_interval = 0
 
 class Trainer(object):
-    def __init__(self, model, train_loader, val_loader, optimizer, criterion, pre_trained=True, name ='default', 
+    def __init__(self, model, train_loader, val_loader, optimizer, criterion='default', pre_trained=True, name ='default', 
                                                                                                         metrics_calc='accuracy'):
         self.model = model
         #self.datasets = datasets
@@ -20,8 +20,9 @@ class Trainer(object):
         self.pre_trained = pre_trained
         self.name = name
         self.best_acc = 0
-        self.metrics = metrics_calc
-        self.metrics_module = importlib.import_module('..metrics', __name__)
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        #self.metrics = metrics_calc
+        #self.metrics_module = importlib.import_module('..metrics', __name__)
         #self.acc_functions = {'f2': metrics.f2,'accuracy': metrics.accuracy}
         
         #self.monitor = boilerplate.VisdomMonitor(port=80)
@@ -72,9 +73,10 @@ class Trainer(object):
                 running_corrects = 0
                 dataset_sizes = 0
                 # Iterate over data.
-                for data in tqdm(dataloaders[phase]):
+                for inputs, labels in tqdm(dataloaders[phase]):
                     # get the inputs
-                    inputs, labels = data
+                    inputs = inputs.to(self.device)
+                    labels = labels.to(self.device)
                     
                     if phase == 'train':
                         if hasattr(scheduler, 'apply_batch'):
@@ -83,7 +85,7 @@ class Trainer(object):
                         outputs, loss = self.fit_on_batch(inputs,labels,self.criterion,self.optimizer)
                         iteration += 1
                         self.history.setdefault('lr', []).append(self.optimizer.param_groups[0]['lr'])
-                        self.history.setdefault('loss', []).append(loss.data[0])
+                        self.history.setdefault('loss', []).append(loss.item())
                         self.history.setdefault('iterations', []).append(iteration)
                     else:
                         outputs, loss = self.evaluate_on_batch(inputs,labels,self.criterion)
@@ -91,12 +93,12 @@ class Trainer(object):
                     #_, preds = torch.max(outputs.data, 1)
                     # Run the function according the metrics specified for scoring the model
                     #score = getattr(self.metrics_module, self.metrics)(outputs.cpu().data.numpy(),labels.cpu().numpy())
-                    #score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))                        
+                    score = self.model.calculate_metrics(outputs,labels)                        
                     
                     # statistics
-                    running_loss += loss.data[0] * inputs.size(0)
-                    running_corrects += torch.sum(preds == make_var(labels).data)
-                    #running_corrects += score * inputs.size(0)
+                    running_loss += loss.item() * inputs.size(0)
+                    #running_corrects += torch.sum(preds == make_var(labels).data)
+                    running_corrects += score * inputs.size(0)
                     dataset_sizes += inputs.size(0)
                    
                 epoch_loss = running_loss / dataset_sizes
@@ -141,7 +143,7 @@ class Trainer(object):
         self.optimizer.load_state_dict(best_optimizer_params)
         #return self.model
      
-    def fit_on_batch(self, x, y, loss_fn, optimizer):
+    def fit_on_batch(self, x, y_true, loss_fn, optimizer):
         """Trains the model on a single batch of examples.
         This is a training function for a basic classifier. For more complex models,
         you should write your own training function.
@@ -167,12 +169,12 @@ class Trainer(object):
         optimizer.zero_grad()
 
         # Forward pass
-        outputs = self.model(make_var(x))
+        outputs = self.model(x)
 
         # Compute loss
-        y_true = make_var(y, dtype=np.int)
-        loss = loss_fn(outputs, y_true)
-        #loss = self.model.calculate_loss(outputs,y_true)
+        #y_true = make_var(y, dtype=np.int)
+        #loss = loss_fn(outputs, y_true)
+        loss = self.model.calculate_loss(outputs,y_true)
 
         # Backward pass
         loss.backward()
@@ -180,7 +182,7 @@ class Trainer(object):
 
         return outputs, loss
     
-    def evaluate_on_batch(self, x, y, loss_fn=None, metrics=["loss", "acc"]):
+    def evaluate_on_batch(self, x, y_true, loss_fn, metrics=["loss", "acc"]):
         """Evaluates the model on a single batch of examples.
 
         This is a evaluation function for a basic classifier. For more complex models,
@@ -208,10 +210,10 @@ class Trainer(object):
             The computed metrics for this batch.
         """
         self.model.train(False)
-        outputs = self.model(make_var(x, volatile=True))
-        y_true = make_var(y, dtype=np.int, volatile=True)
-        loss = loss_fn(outputs, y_true)
-        #loss = self.model.calculate_loss(outputs,y_true)
+        outputs = self.model(x)
+        #y_true = make_var(y, dtype=np.int, volatile=True)
+        #loss = loss_fn(outputs, y_true)
+        loss = self.model.calculate_loss(outputs,y_true)
         return outputs, loss
     
     def lr_find(self, start_lr=1e-5, end_lr=10, steps=None):
@@ -262,33 +264,37 @@ class Trainer(object):
             self.model.train(True)  # Set model to training mode
                    
             # Iterate over data.
-            for batch_idx, data in tqdm(enumerate(self.train_loader)):
+            #for batch_idx, data in tqdm(enumerate(self.train_loader)):
+            for inputs, labels in tqdm(self.train_loader):
                 # get the inputs
-                inputs, labels = data
+                #inputs, labels = data
+                inputs = inputs.to(self.device)
+                labels = labels.to(self.device)
                 iteration += 1
 
                 outputs, loss = self.fit_on_batch(inputs,labels,self.criterion,self.optimizer)
                 
                 #score = getattr(self.metrics_module, self.metrics)(outputs.cpu().data.numpy(),labels.cpu().numpy())
-                #score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))   
+                #score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))  
+                score = self.model.calculate_metrics(outputs,labels) 
                 
-                _, preds = torch.max(outputs.data, 1)
-                corrects = torch.sum(preds == make_var(labels).data)
+                #_, preds = torch.max(outputs.data, 1)
+                #corrects = torch.sum(preds == make_var(labels).data)
 
                 # statistics
                 self.history.setdefault('lr', []).append(lr_value)
-                self.history.setdefault('loss', []).append(loss.data[0])
+                self.history.setdefault('loss', []).append(loss.item())
                 self.history.setdefault('iterations', []).append(iteration)
                 #loss_history.append(loss.data[0])
                 #lr_history.append(lr_value)
                                 
-                print('Batch No:{} Learn rate {:.2E} Batch Loss: {:.4f} Batch Accuracy: {:.4f} '.format(
-                    batch_idx, lr_value, loss.data[0], score))
+                print('Iteration No:{} Learn rate {:.2E} Batch Loss: {:.4f} Batch Accuracy: {:.4f} '.format(
+                    iteration, lr_value, loss.item(), score))
                 
-                if loss.data[0] < best_loss:
-                    best_loss = loss.data[0]
+                if loss.item() < best_loss:
+                    best_loss = loss.item()
 
-                if math.isnan(loss.data[0]) or loss.data[0] > best_loss*20 or iteration >= steps - 1:
+                if math.isnan(loss.item()) or loss.item() > best_loss*20 or iteration >= steps - 1:
                     should_stop = True
                     break
                               
