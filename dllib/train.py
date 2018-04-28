@@ -294,7 +294,7 @@ class Trainer(object):
                 if loss.item() < best_loss:
                     best_loss = loss.item()
 
-                if math.isnan(loss.item()) or loss.item() > best_loss*20 or iteration >= steps - 1:
+                if math.isnan(loss.item()) or (loss.item() > best_loss*20 and best_loss > 1.0) or iteration >= steps - 1:
                     should_stop = True
                     break
                               
