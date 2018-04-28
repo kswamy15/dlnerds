@@ -91,12 +91,12 @@ class Trainer(object):
                     #_, preds = torch.max(outputs.data, 1)
                     # Run the function according the metrics specified for scoring the model
                     #score = getattr(self.metrics_module, self.metrics)(outputs.cpu().data.numpy(),labels.cpu().numpy())
-                    score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))                        
+                    #score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))                        
                     
                     # statistics
                     running_loss += loss.data[0] * inputs.size(0)
-                    #running_corrects += torch.sum(preds == make_var(labels).data)
-                    running_corrects += score * inputs.size(0)
+                    running_corrects += torch.sum(preds == make_var(labels).data)
+                    #running_corrects += score * inputs.size(0)
                     dataset_sizes += inputs.size(0)
                    
                 epoch_loss = running_loss / dataset_sizes
@@ -270,10 +270,10 @@ class Trainer(object):
                 outputs, loss = self.fit_on_batch(inputs,labels,self.criterion,self.optimizer)
                 
                 #score = getattr(self.metrics_module, self.metrics)(outputs.cpu().data.numpy(),labels.cpu().numpy())
-                score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))   
+                #score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))   
                 
-                #_, preds = torch.max(outputs.data, 1)
-                #corrects = torch.sum(preds == make_var(labels).data)
+                _, preds = torch.max(outputs.data, 1)
+                corrects = torch.sum(preds == make_var(labels).data)
 
                 # statistics
                 self.history.setdefault('lr', []).append(lr_value)
