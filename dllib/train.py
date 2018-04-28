@@ -21,6 +21,8 @@ class Trainer(object):
         self.name = name
         self.best_acc = 0
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self.best_model_wts = copy.deepcopy(self.model.state_dict())
+        self.best_optimizer_params = copy.deepcopy(self.optimizer.state_dict())
         #self.metrics = metrics_calc
         #self.metrics_module = importlib.import_module('..metrics', __name__)
         #self.acc_functions = {'f2': metrics.f2,'accuracy': metrics.accuracy}
@@ -36,8 +38,8 @@ class Trainer(object):
             self.metrics = metrics    
         self.history = {}
         iteration = 0
-        best_model_wts = copy.deepcopy(self.model.state_dict())
-        best_optimizer_params = copy.deepcopy(self.optimizer.state_dict())
+        #best_model_wts = copy.deepcopy(self.model.state_dict())
+        #best_optimizer_params = copy.deepcopy(self.optimizer.state_dict())
         
         #dataset_sizes = {x: len(self.datasets[x]) for x in ['train', 'val']}
         #class_names = self.datasets['train'].classes
@@ -121,8 +123,8 @@ class Trainer(object):
                     }, is_best)
                     if epoch_acc > self.best_acc:
                         self.best_acc = epoch_acc
-                        best_model_wts = copy.deepcopy(self.model.state_dict())
-                        best_optimizer_params = copy.deepcopy(self.optimizer.state_dict())
+                        self.best_model_wts = copy.deepcopy(self.model.state_dict())
+                        self.best_optimizer_params = copy.deepcopy(self.optimizer.state_dict())
                 else:
                     train_loss = epoch_loss
                     train_acc = epoch_acc        
@@ -139,8 +141,8 @@ class Trainer(object):
         logger.plot()
  
         # load best model weights and optimizer parameters
-        self.model.load_state_dict(best_model_wts)
-        self.optimizer.load_state_dict(best_optimizer_params)
+        self.model.load_state_dict(self.best_model_wts)
+        self.optimizer.load_state_dict(self.best_optimizer_params)
         #return self.model
      
     def fit_on_batch(self, x, y_true, loss_fn, optimizer):
