@@ -34,6 +34,7 @@ class Trainer(object):
         since = time.time()
         if not (optimizer is None):
             self.optimizer = optimizer
+            self.best_optimizer_params = copy.deepcopy(self.optimizer.state_dict())
         if not (metrics is None):
             self.metrics = metrics    
         self.history = {}
