@@ -1,12 +1,15 @@
 from .imports import *
 from .utils import make_var as make_var
 from .model import *
+#from .metrics import *
 from .lr_sched import *
 from .logger import Logger
+import importlib
 tqdm.monitor_interval = 0
 
 class Trainer(object):
-    def __init__(self, model, train_loader, val_loader, criterion, optimizer, pre_trained=True, name ='default'):
+    def __init__(self, model, train_loader, val_loader, optimizer, criterion, pre_trained=True, name ='default', 
+                                                                                                        metrics_calc='accuracy'):
         self.model = model
         #self.datasets = datasets
         #self.batch_size = batch_size
@@ -17,14 +20,19 @@ class Trainer(object):
         self.pre_trained = pre_trained
         self.name = name
         self.best_acc = 0
-                
+        self.metrics = metrics_calc
+        self.metrics_module = importlib.import_module('..metrics', __name__)
+        #self.acc_functions = {'f2': metrics.f2,'accuracy': metrics.accuracy}
+        
         #self.monitor = boilerplate.VisdomMonitor(port=80)
  
         
-    def train_model(self, optimizer=None, scheduler=None, num_epochs=10):
+    def train_model(self, optimizer=None, scheduler=None, num_epochs=10, metrics=None):
         since = time.time()
         if not (optimizer is None):
             self.optimizer = optimizer
+        if not (metrics is None):
+            self.metrics = metrics    
         self.history = {}
         iteration = 0
         best_model_wts = copy.deepcopy(self.model.state_dict())
@@ -80,11 +88,15 @@ class Trainer(object):
                     else:
                         outputs, loss = self.evaluate_on_batch(inputs,labels,self.criterion)
                                         
-                    _, preds = torch.max(outputs.data, 1)
-                   
+                    #_, preds = torch.max(outputs.data, 1)
+                    # Run the function according the metrics specified for scoring the model
+                    #score = getattr(self.metrics_module, self.metrics)(outputs.cpu().data.numpy(),labels.cpu().numpy())
+                    score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))                        
+                    
                     # statistics
                     running_loss += loss.data[0] * inputs.size(0)
-                    running_corrects += torch.sum(preds == make_var(labels).data)
+                    #running_corrects += torch.sum(preds == make_var(labels).data)
+                    running_corrects += score * inputs.size(0)
                     dataset_sizes += inputs.size(0)
                    
                 epoch_loss = running_loss / dataset_sizes
@@ -127,9 +139,9 @@ class Trainer(object):
         # load best model weights and optimizer parameters
         self.model.load_state_dict(best_model_wts)
         self.optimizer.load_state_dict(best_optimizer_params)
-        return self.model
+        #return self.model
      
-    def fit_on_batch(self, x, y, loss_fn, optimizer, metrics=["loss", "acc"]):
+    def fit_on_batch(self, x, y, loss_fn, optimizer):
         """Trains the model on a single batch of examples.
         This is a training function for a basic classifier. For more complex models,
         you should write your own training function.
@@ -146,8 +158,6 @@ class Trainer(object):
             The loss function to use.
         optimizer: 
             The SGD optimizer to use.
-        metrics: list
-            Which metrics to compute over the batch.
         Returns
         -------
         dict
@@ -162,6 +172,7 @@ class Trainer(object):
         # Compute loss
         y_true = make_var(y, dtype=np.int)
         loss = loss_fn(outputs, y_true)
+        #loss = self.model.calculate_loss(outputs,y_true)
 
         # Backward pass
         loss.backward()
@@ -196,11 +207,11 @@ class Trainer(object):
         dict
             The computed metrics for this batch.
         """
-
+        self.model.train(False)
         outputs = self.model(make_var(x, volatile=True))
         y_true = make_var(y, dtype=np.int, volatile=True)
         loss = loss_fn(outputs, y_true)
-        
+        #loss = self.model.calculate_loss(outputs,y_true)
         return outputs, loss
     
     def lr_find(self, start_lr=1e-5, end_lr=10, steps=None):
@@ -221,7 +232,7 @@ class Trainer(object):
             steps seems to work well.
         """
         self._save_state()
-        
+
         one_epoch = len(self.train_loader)
         epochs = 1
         if steps is None:
@@ -257,6 +268,12 @@ class Trainer(object):
                 iteration += 1
 
                 outputs, loss = self.fit_on_batch(inputs,labels,self.criterion,self.optimizer)
+                
+                #score = getattr(self.metrics_module, self.metrics)(outputs.cpu().data.numpy(),labels.cpu().numpy())
+                score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))   
+                
+                #_, preds = torch.max(outputs.data, 1)
+                #corrects = torch.sum(preds == make_var(labels).data)
 
                 # statistics
                 self.history.setdefault('lr', []).append(lr_value)
@@ -265,8 +282,8 @@ class Trainer(object):
                 #loss_history.append(loss.data[0])
                 #lr_history.append(lr_value)
                                 
-                print('Batch No:{} Learn rate {:.2E} Batch Loss: {:.4f} '.format(
-                    batch_idx, lr_value, loss.data[0]))
+                print('Batch No:{} Learn rate {:.2E} Batch Loss: {:.4f} Batch Accuracy: {:.4f} '.format(
+                    batch_idx, lr_value, loss.data[0], score))
                 
                 if loss.data[0] < best_loss:
                     best_loss = loss.data[0]
