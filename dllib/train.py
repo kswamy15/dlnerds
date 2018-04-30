@@ -252,9 +252,13 @@ class Trainer(object):
         best_loss = 1e9
         prior_loss = 1.0
         
+        # Set initial Learning rate
+        for param_group in self.optimizer.param_groups:
+            param_group['lr'] = start_lr
         lr_decay = 10**((np.log10(end_lr)-np.log10(start_lr))/float(steps))
         lr_value = start_lr
         should_stop = False
+        
         
         print("Trying learning rates between %g and %g over %d steps (%d epochs)" %
               (start_lr, end_lr, steps, epochs))
@@ -271,7 +275,8 @@ class Trainer(object):
             #for batch_idx, data in tqdm(enumerate(self.train_loader)):
             for inputs, labels in tqdm(self.train_loader):
                 # get the inputs
-                #inputs, labels = data
+                
+
                 inputs = inputs.to(self.device)
                 labels = labels.to(self.device)
                 iteration += 1
@@ -302,15 +307,12 @@ class Trainer(object):
                     should_stop = True
                     break
                 #set prior_iteration loss to current loss
-                prior_loss = loss.item()              
-                          
-                #loss_history_prev = loss.data[0]    
-
+                prior_loss = loss.item()  
+                # Increase the learning rate
                 for param_group in self.optimizer.param_groups:
                     param_group['lr'] *= lr_decay
-                lr_value *= lr_decay
-
-        #history = {'loss_hist':loss_history,'lr_hist':lr_history}   
+                lr_value *= lr_decay            
+         
         self.loss_lr_plot()         
         self._restore_state()
      
