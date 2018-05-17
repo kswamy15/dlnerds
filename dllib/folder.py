@@ -8,13 +8,14 @@ from torchvision.datasets.folder import default_loader
 class myImageFolder(data.Dataset):
     """It is ImageFolder class that has been made to load images that is not arranged in class folders
     """
-    def __init__(self, label_file, root, permitted_filenames=None, transform=None, target_transform=None):
+    def __init__(self, label_file, root, permitted_filenames=None, transform=None, target_transform=None, multilabel=False):
         self.root = root
         labels, classes, class_to_idx, class_freq = self._init_classes(label_file)
         self.labels = labels
         self.classes = classes
         self.class_to_idx = class_to_idx
         self.class_freq = class_freq
+        self.multilabel = multilabel
         self.imgs = self.make_dataset(permitted_filenames)
         self.transform = transform
         self.target_transform = target_transform
@@ -39,9 +40,13 @@ class myImageFolder(data.Dataset):
         images = []
         for filename in os.listdir(self.root):
             if permitted_filenames is None or filename in permitted_filenames:
-                labels = set(self.labels[filename.split('.')[0]])
-                target = [int(class_name in labels) for class_name in self.classes]
-                images.append((filename, torch.FloatTensor(target)))
+                if self.multilabel:
+                    labels = set(self.labels[filename.split('.')[0]])
+                    target = [int(class_name in labels) for class_name in self.classes]
+                    images.append((filename, torch.FloatTensor(target)))
+                else: 
+                    target = self.class_to_idx[self.labels[filename.split('.')[0]][0]]    
+                    images.append((filename, target))
 
         return images
 
