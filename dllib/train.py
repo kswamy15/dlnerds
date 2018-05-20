@@ -1,5 +1,6 @@
 from .imports import *
 from .utils import to_np
+from .core import V
 #from .model import *
 #from .metrics import *
 from .lr_sched import *
@@ -76,10 +77,12 @@ class Trainer(object):
                 running_corrects = 0
                 dataset_sizes = 0
                 # Iterate over data.
-                for inputs, labels in tqdm(dataloaders[phase]):
+                for *inputs, labels in tqdm(dataloaders[phase]):
                     # get the inputs
-                    inputs = inputs.to(self.device)
-                    labels = labels.to(self.device)
+                    #inputs = inputs.to(self.device)
+                    #labels = labels.to(self.device)
+                    inputs = V(inputs)
+                    labels = V(labels)
                     
                     if phase == 'train':
                         if hasattr(scheduler, 'apply_batch'):
@@ -99,10 +102,9 @@ class Trainer(object):
                     score = self.model.calculate_metrics(outputs,labels)                        
                     
                     # statistics
-                    running_loss += loss.item() * inputs.size(0)
-                    #running_corrects += torch.sum(preds == make_var(labels).data)
-                    running_corrects += score * inputs.size(0)
-                    dataset_sizes += inputs.size(0)
+                    running_loss += loss.item() * labels.size(0)
+                    running_corrects += score * labels.size(0)
+                    dataset_sizes += labels.size(0)
                    
                 epoch_loss = running_loss / dataset_sizes
                 epoch_acc = running_corrects / dataset_sizes
@@ -172,11 +174,9 @@ class Trainer(object):
         optimizer.zero_grad()
 
         # Forward pass
-        outputs = self.model(x)
+        outputs = self.model(*x)
 
         # Compute loss
-        #y_true = make_var(y, dtype=np.int)
-        #loss = loss_fn(outputs, y_true)
         loss = self.model.calculate_loss(outputs,y_true)
 
         # Backward pass
@@ -213,9 +213,7 @@ class Trainer(object):
             The computed metrics for this batch.
         """
         self.model.train(False)
-        outputs = self.model(x)
-        #y_true = make_var(y, dtype=np.int, volatile=True)
-        #loss = loss_fn(outputs, y_true)
+        outputs = self.model(*x)
         loss = self.model.calculate_loss(outputs,y_true)
         return outputs, loss
     
@@ -245,27 +243,22 @@ class Trainer(object):
         elif one_epoch < steps:
             epochs = (steps + one_epoch - 1) // one_epoch
        
-        #lr_history = []
-        #loss_history = []
         self.history = {}
-        iteration = 0
-        best_loss = 1e9
-        prior_loss = 1.0
+        avg_mom=0.98
+        iteration,avg_loss=0,0.
+       
+        prior_loss = 1000.0
         
         # Set initial Learning rate
         for param_group in self.optimizer.param_groups:
             param_group['lr'] = start_lr
         lr_decay = 10**((np.log10(end_lr)-np.log10(start_lr))/float(steps))
         lr_value = start_lr
-        should_stop = False
-        
-        
+         
         print("Trying learning rates between %g and %g over %d steps (%d epochs)" %
               (start_lr, end_lr, steps, epochs))
         
         for epoch in range(epochs):
-            if should_stop:
-                break
             print('Epoch {}/{}'.format(epoch, epochs - 1))
             print('-' * 10)
                         
@@ -273,38 +266,31 @@ class Trainer(object):
                    
             # Iterate over data.
             #for batch_idx, data in tqdm(enumerate(self.train_loader)):
-            for inputs, labels in tqdm(self.train_loader):
+            for *inputs, labels in tqdm(self.train_loader):
                 # get the inputs
-                
-
-                inputs = inputs.to(self.device)
-                labels = labels.to(self.device)
+                inputs = V(inputs)
+                labels = V(labels)
                 iteration += 1
                 
                 outputs, loss = self.fit_on_batch(inputs,labels,self.criterion,self.optimizer)
+                
+                avg_loss = avg_loss * avg_mom + loss.item() * (1-avg_mom)
+                debias_loss = avg_loss / (1 - avg_mom**iteration)
                 
                 #score = getattr(self.metrics_module, self.metrics)(outputs.cpu().data.numpy(),labels.cpu().numpy())
                 #score = self.model.calculate_metrics(outputs,make_var(labels, dtype=np.int))  
                 score = self.model.calculate_metrics(outputs,labels) 
                 
-                #_, preds = torch.max(outputs.data, 1)
-                #corrects = torch.sum(preds == make_var(labels).data)
-
                 # statistics
                 self.history.setdefault('lr', []).append(lr_value)
-                self.history.setdefault('loss', []).append(loss.item())
+                #self.history.setdefault('loss', []).append(loss.item())
+                self.history.setdefault('loss', []).append(debias_loss)
                 self.history.setdefault('iterations', []).append(iteration)
-                #loss_history.append(loss.data[0])
-                #lr_history.append(lr_value)
-                                
+                                                
                 print('Iteration No:{} Learn rate {:.2E} Batch Loss: {:.4f} Batch Accuracy: {:.4f} '.format(
                     iteration, lr_value, loss.item(), score))
                 
-                if loss.item() < best_loss:
-                    best_loss = loss.item()
-
                 if math.isnan(loss.item()) or (loss.item() > prior_loss*20 and prior_loss > .01) or iteration >= steps - 1:
-                    should_stop = True
                     break
                 #set prior_iteration loss to current loss
                 prior_loss = loss.item()  
