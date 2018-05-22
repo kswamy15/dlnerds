@@ -7,6 +7,7 @@ import pandas as pd
 from tqdm import tqdm
 from collections import defaultdict
 from functools import partial
+from distutils.version import LooseVersion
 
 import torch
 import torch.nn as nn
